@@ -23,4 +23,4 @@ Aplikasi chat sederhana berbasis UDP menggunakan Go (Golang). Aplikasi ini terdi
 3. Jalankan client
 
    go run main.go [username]
-4. Untuk keluar dari chat ketik exit pada terminal
+4. Untuk keluar dari chat klik ctrl + c
