@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"strings"
 )
 
@@ -27,7 +29,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Kirim username sebagai pesan bergabung
 	_, err = conn.Write([]byte("join:" + username))
 	if err != nil {
 		fmt.Println(err)
@@ -35,29 +36,41 @@ func main() {
 	}
 	fmt.Println("Welcome to server ", username)
 
+	// Menangani Ctrl+C
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		_, err := conn.Write([]byte("left:exit"))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("\nYou have left the chat.")
+		os.Exit(0)
+	}()
+
 	go handleConn(conn)
 
-	// Kirim pesan dari client ke server
 	inputReader := bufio.NewReader(os.Stdin)
 	for {
+		fmt.Printf("[You]: ") 
 		message, _ := inputReader.ReadString('\n')
-		message = strings.TrimSpace(message) // Hapus spasi di awal dan akhir
-		if message == "exit" {
-			_, err = conn.Write([]byte("left:exit"))
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			break
+		message = strings.TrimSpace(message)
+
+		// Jika pengguna ingin keluar
+		if message == "" {
+			continue
 		}
-		_, err = conn.Write([]byte("message:" + message))
+
+		_, err := conn.Write([]byte("message:" + message))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 	}
-	fmt.Println("You have left the chat.") // Tambahkan log keluar
 }
+
 
 func handleConn(request *net.UDPConn) {
 	for {
@@ -67,6 +80,11 @@ func handleConn(request *net.UDPConn) {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println(string(buf[:n]))
+		// Menampilkan pesan yang diterima
+		incomingMessage := string(buf[:n])
+		if incomingMessage != "" {
+			fmt.Printf("\r%s\n[You]: ", incomingMessage)
+		}
+
 	}
 }

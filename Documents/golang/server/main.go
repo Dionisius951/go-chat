@@ -47,27 +47,38 @@ func handleConn(conn *net.UDPConn) {
 	msgType := parts[0]
 	content := parts[1]
 
-	if msgType == "join" {
-		username := content
-		clients[addr.String()] = username
-		fmt.Printf("%s joined\n", username)
-		broadcastMessage(conn, fmt.Sprintf("%s has joined the chat\n", username), addr)
-	} else if msgType == "left" {
-		if content == "exit" {
-			username := clients[addr.String()]
-			delete(clients, addr.String())
-			fmt.Printf("%s left\n", username)
-			broadcastMessage(conn, fmt.Sprintf("%s has left the chat\n", username), addr)
-		}
-	} else {
-		username, ok := clients[addr.String()]
-		if ok {
-			broadcastMessage(conn, fmt.Sprintf("[%s]: %s", username, parts[1]), addr)
-		}
+	switch msgType {
+	case "join":
+		handleJoin(conn, addr, content)
+	case "left":
+		handleLeft(conn, addr, content)
+	default:
+		handleMessage(conn, addr, parts[1])
 	}
 }
 
-// Broadcast pesan ke semua client kecuali pengirim
+func handleJoin(conn *net.UDPConn, addr *net.UDPAddr, username string) {
+	clients[addr.String()] = username
+	fmt.Printf("%s joined\n", username)
+	go broadcastMessage(conn, fmt.Sprintf("\n%s has joined the chat\n", username), addr)
+}
+
+func handleLeft(conn *net.UDPConn, addr *net.UDPAddr, content string) {
+	if content == "exit" {
+		username := clients[addr.String()]
+		delete(clients, addr.String())
+		fmt.Printf("%s left\n", username)
+	go broadcastMessage(conn, fmt.Sprintf("\r %s has left the chat\n", username), addr)
+	}
+}
+
+func handleMessage(conn *net.UDPConn, addr *net.UDPAddr, message string) {
+	username, ok := clients[addr.String()]
+	if ok {
+	 go broadcastMessage(conn, fmt.Sprintf("[%s]: %s", username, message), addr)
+	}
+}
+
 func broadcastMessage(conn *net.UDPConn, message string, senderAddr *net.UDPAddr) {
 	for addr, username := range clients {
 		if addr != senderAddr.String() {
